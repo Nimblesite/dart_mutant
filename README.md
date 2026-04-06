@@ -111,7 +111,7 @@ dart_mutant --ai ollama --ollama-model codellama
 
 ## License
 
-MIT
+MIT License. Copyright (c) 2026 Nimblesite. See [LICENSE](LICENSE) for the full text.
 
 ---
 
