@@ -154,7 +154,7 @@ dart_mutant/
 
 - CI runs on Ubuntu; full integration tests require the Dart SDK (installed via `dart-lang/setup-dart@v1`).
 - Coverage is collected by `cargo-llvm-cov` and enforced via `make coverage-check` against `COVERAGE_THRESHOLD_RUST` (GitHub repo variable; default 85% for CLI tools).
-- The release workflow publishes a Homebrew formula to `MelbourneDeveloper/homebrew-tap`.
+- The release workflow publishes a Homebrew formula to `Nimblesite/homebrew-tap`.
 
 ## Website (SEO + AI-aware)
 

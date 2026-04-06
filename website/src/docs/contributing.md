@@ -11,7 +11,7 @@ dart_mutant is open source and welcomes contributions!
 
 ### Report Issues
 
-Found a bug or have a feature request? [Open an issue](https://github.com/user/dart_mutant/issues/new) with:
+Found a bug or have a feature request? [Open an issue](https://github.com/Nimblesite/dart_mutant/issues/new) with:
 
 - dart_mutant version (`dart_mutant --version`)
 - Dart version (`dart --version`)
@@ -46,7 +46,7 @@ Pull requests are welcome for:
 ### Clone and Build
 
 ```bash
-git clone https://github.com/user/dart_mutant
+git clone https://github.com/Nimblesite/dart_mutant
 cd dart_mutant
 cargo build
 ```
@@ -212,7 +212,7 @@ Be respectful. We're all here to make better software.
 
 ## Questions?
 
-- [GitHub Discussions](https://github.com/user/dart_mutant/discussions)
-- [Open an Issue](https://github.com/user/dart_mutant/issues)
+- [GitHub Discussions](https://github.com/Nimblesite/dart_mutant/discussions)
+- [Open an Issue](https://github.com/Nimblesite/dart_mutant/issues)
 
 Thank you for contributing!

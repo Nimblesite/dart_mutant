@@ -76,7 +76,7 @@ jobs:
 
       - name: Install dart_mutant
         run: |
-          curl -L https://github.com/user/dart_mutant/releases/latest/download/dart_mutant-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          curl -L https://github.com/Nimblesite/dart_mutant/releases/latest/download/dart_mutant-x86_64-unknown-linux-gnu.tar.gz | tar xz
           sudo mv dart_mutant /usr/local/bin/
 
       - name: Run incremental mutation tests

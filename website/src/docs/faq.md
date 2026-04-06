@@ -210,5 +210,5 @@ Some mutations can create invalid Dart code. These are marked as "Error" and exc
 
 ## More Questions?
 
-- Check the [GitHub Issues](https://github.com/user/dart_mutant/issues)
+- Check the [GitHub Issues](https://github.com/Nimblesite/dart_mutant/issues)
 - Open a new issue if your question isn't answered

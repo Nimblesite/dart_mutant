@@ -34,7 +34,7 @@ jobs:
 
       - name: Install dart_mutant
         run: |
-          curl -L https://github.com/user/dart_mutant/releases/latest/download/dart_mutant-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          curl -L https://github.com/Nimblesite/dart_mutant/releases/latest/download/dart_mutant-x86_64-unknown-linux-gnu.tar.gz | tar xz
           sudo mv dart_mutant /usr/local/bin/
 
       - name: Run mutation tests
@@ -55,7 +55,7 @@ mutation-test:
   image: dart:stable
   stage: test
   before_script:
-    - curl -L https://github.com/user/dart_mutant/releases/latest/download/dart_mutant-x86_64-unknown-linux-gnu.tar.gz | tar xz
+    - curl -L https://github.com/Nimblesite/dart_mutant/releases/latest/download/dart_mutant-x86_64-unknown-linux-gnu.tar.gz | tar xz
     - mv dart_mutant /usr/local/bin/
     - dart pub get
   script:
@@ -82,7 +82,7 @@ jobs:
       - run:
           name: Install dart_mutant
           command: |
-            curl -L https://github.com/user/dart_mutant/releases/latest/download/dart_mutant-x86_64-unknown-linux-gnu.tar.gz | tar xz
+            curl -L https://github.com/Nimblesite/dart_mutant/releases/latest/download/dart_mutant-x86_64-unknown-linux-gnu.tar.gz | tar xz
             mv dart_mutant /usr/local/bin/
       - run:
           name: Install dependencies
@@ -116,7 +116,7 @@ steps:
       version: 'stable'
 
   - script: |
-      curl -L https://github.com/user/dart_mutant/releases/latest/download/dart_mutant-x86_64-unknown-linux-gnu.tar.gz | tar xz
+      curl -L https://github.com/Nimblesite/dart_mutant/releases/latest/download/dart_mutant-x86_64-unknown-linux-gnu.tar.gz | tar xz
       sudo mv dart_mutant /usr/local/bin/
     displayName: 'Install dart_mutant'
 

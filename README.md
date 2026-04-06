@@ -18,10 +18,17 @@ Open `./mutation-reports/mutation-report.html` to see what your tests missed.
 ## Installation
 
 ```bash
-git clone https://github.com/user/dart_mutant
+git clone https://github.com/Nimblesite/dart_mutant
 cd dart_mutant
 cargo build --release
 export PATH="$PATH:$(pwd)/target/release"
+```
+
+### Homebrew (macOS / Linux)
+
+```bash
+brew tap Nimblesite/tap
+brew install dart_mutant
 ```
 
 ## Key Options
@@ -105,3 +112,7 @@ dart_mutant --ai ollama --ollama-model codellama
 ## License
 
 MIT
+
+---
+
+Maintained by [Nimblesite](https://nimblesite.co). Source on [GitHub](https://github.com/Nimblesite/dart_mutant).
