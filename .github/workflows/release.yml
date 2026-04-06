@@ -1,3 +1,4 @@
+# agent-pmo:5547fd2
 name: Release
 
 on:
@@ -15,6 +16,7 @@ jobs:
   build:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -64,6 +66,7 @@ jobs:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -85,6 +88,7 @@ jobs:
     name: Update Homebrew Formula
     needs: release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout homebrew-tap
         uses: actions/checkout@v4

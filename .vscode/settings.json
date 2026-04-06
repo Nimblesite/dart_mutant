@@ -1,4 +1,5 @@
 {
+    "_agent_pmo": "5547fd2",
     "rust-analyzer.cargo.allTargets": true,
     "rust-analyzer.cargo.buildScripts.enable": true,
     "rust-analyzer.check.command": "clippy",
@@ -18,5 +19,11 @@
     "rust-analyzer.diagnostics.enable": true,
     "rust-analyzer.diagnostics.experimental.enable": true,
     "rust-analyzer.cargo.buildScripts.overrideCommand": null,
-    "rust-analyzer.check.overrideCommand": null
+    "rust-analyzer.check.overrideCommand": null,
+    "workbench.colorCustomizations": {
+        "titleBar.activeBackground": "#39ff14",
+        "titleBar.activeForeground": "#0a0a0f",
+        "titleBar.inactiveBackground": "#2ed10f",
+        "titleBar.inactiveForeground": "#0a0a0fcc"
+    }
 }
