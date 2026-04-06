@@ -1,7 +1,7 @@
 ---
 layout: base.njk
 title: dart_mutant
-description: Blazingly fast mutation testing for Dart. AST-based mutations that hunt down weak tests.
+description: dart_mutant is an open-source mutation testing tool for Dart. It uses tree-sitter AST parsing to generate syntactically valid mutants and runs dart test in parallel to reveal gaps in your test suite.
 ---
 
 <!-- Hero Section -->
@@ -16,8 +16,9 @@ description: Blazingly fast mutation testing for Dart. AST-based mutations that 
       <h1 class="hero-title">Hunt Down <span class="highlight">Weak Tests</span></h1>
 
       <p class="hero-subtitle">
-        dart_mutant unleashes mutations on your Dart code to find tests that pass when they
-        shouldn't. AST-based precision. Zero false positives. Blazing fast.
+        dart_mutant applies small, targeted mutations to your Dart code and runs
+        <code>dart test</code> against each one. Mutations that survive reveal tests that
+        don't actually verify behaviour. AST-based, parallel, written in Rust.
       </p>
 
       <div class="hero-actions">
@@ -103,19 +104,19 @@ description: Blazingly fast mutation testing for Dart. AST-based mutations that 
 
       <div class="feature-card">
         <div class="feature-icon">⚡</div>
-        <h3>Blazingly Fast</h3>
+        <h3>Parallel Execution</h3>
         <p>
-          Written in Rust with parallel test execution. Mutation test your entire codebase in
-          minutes, not hours.
+          Written in Rust. Mutants are tested in parallel across available CPU cores so large
+          codebases remain practical to mutation-test.
         </p>
       </div>
 
       <div class="feature-card">
         <div class="feature-icon">🎯</div>
-        <h3>Zero False Positives</h3>
+        <h3>Smart Exclusions</h3>
         <p>
-          Smart exclusions for generated code, comments, and strings. Every surviving mutant is a
-          real gap in your tests.
+          Generated files (<code>*.g.dart</code>, <code>*.freezed.dart</code>), comments, and
+          string literals are excluded by default, so surviving mutants reflect real gaps.
         </p>
       </div>
 
@@ -288,16 +289,16 @@ description: Blazingly fast mutation testing for Dart. AST-based mutations that 
         <div class="stat-label">Mutation Operators</div>
       </div>
       <div class="stat-item">
-        <div class="stat-value">10x</div>
-        <div class="stat-label">Faster than regex tools</div>
+        <div class="stat-value">AST</div>
+        <div class="stat-label">tree-sitter parsing</div>
       </div>
       <div class="stat-item">
-        <div class="stat-value">0</div>
-        <div class="stat-label">False Positives</div>
+        <div class="stat-value">MIT</div>
+        <div class="stat-label">Open Source License</div>
       </div>
       <div class="stat-item">
-        <div class="stat-value">100%</div>
-        <div class="stat-label">Dart 3 Support</div>
+        <div class="stat-value">Dart 3</div>
+        <div class="stat-label">Null-safety support</div>
       </div>
     </div>
   </div>

@@ -1,6 +1,7 @@
 ---
 layout: docs.njk
 title: Reports
+description: dart_mutant generates HTML dark-theme reports, Stryker-compatible JSON, and JUnit XML for CI pipelines.
 ---
 
 # Reports

@@ -1,6 +1,7 @@
 ---
 layout: docs.njk
 title: Incremental Testing
+description: Run dart_mutant only on code changed since the last commit or branch point. Faster feedback for pull requests and local development.
 ---
 
 # Incremental Testing

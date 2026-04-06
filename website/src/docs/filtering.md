@@ -1,6 +1,7 @@
 ---
 layout: docs.njk
 title: Filtering
+description: Filter which Dart files and mutation operators dart_mutant applies. Include or exclude directories, files, and operator categories.
 ---
 
 # Filtering

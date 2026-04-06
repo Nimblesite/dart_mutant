@@ -1,6 +1,7 @@
 ---
 layout: docs.njk
 title: CI/CD Integration
+description: Run dart_mutant mutation testing in GitHub Actions, GitLab CI, and other pipelines. JUnit XML output and mutation-score threshold enforcement.
 ---
 
 # CI/CD Integration

@@ -1,0 +1,18 @@
+---
+permalink: /sitemap.xml
+eleventyExcludeFromCollections: true
+---
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+{%- set siteUrl = 'https://dartmutant.dev' -%}
+{%- for item in collections.all -%}
+{%- if item.url and not item.data.eleventyExcludeFromCollections -%}
+  <url>
+    <loc>{{ siteUrl }}{{ item.url }}</loc>
+    <lastmod>{{ item.date.toISOString() }}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>{% if item.url == '/' %}1.0{% else %}0.8{% endif %}</priority>
+  </url>
+{%- endif -%}
+{%- endfor %}
+</urlset>

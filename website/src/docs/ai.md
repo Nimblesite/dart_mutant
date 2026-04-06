@@ -1,6 +1,7 @@
 ---
 layout: docs.njk
 title: AI-Powered Mutations
+description: Use Claude, OpenAI, or local Ollama models to prioritize high-value mutation locations in your Dart codebase with dart_mutant.
 ---
 
 # AI-Powered Mutations

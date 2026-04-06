@@ -1,6 +1,7 @@
 ---
 layout: docs.njk
 title: FAQ
+description: Frequently asked questions about dart_mutant, mutation testing in Dart, mutation scores, performance, and how it compares to code coverage.
 ---
 
 # Frequently Asked Questions

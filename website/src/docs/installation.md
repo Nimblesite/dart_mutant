@@ -1,6 +1,7 @@
 ---
 layout: docs.njk
 title: Installation
+description: Install dart_mutant on macOS, Linux, and Windows via Homebrew, Cargo, or prebuilt release binaries.
 ---
 
 # Installation

@@ -1,6 +1,7 @@
 ---
 layout: docs.njk
 title: Interpreting Results
+description: Understand dart_mutant output including mutation score, killed vs survived mutants, timeouts, and how to prioritize test improvements.
 ---
 
 # Interpreting Results

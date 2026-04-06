@@ -1,6 +1,7 @@
 ---
 layout: docs.njk
 title: CLI Options
+description: Complete reference for dart_mutant command-line options including paths, thresholds, parallelism, filters, and report output formats.
 ---
 
 # CLI Options

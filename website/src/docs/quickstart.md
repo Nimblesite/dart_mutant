@@ -1,6 +1,7 @@
 ---
 layout: docs.njk
 title: Quick Start
+description: Get started with dart_mutant in minutes. Install, run your first mutation-testing pass, and read your first report.
 ---
 
 # Quick Start

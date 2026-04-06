@@ -1,6 +1,7 @@
 ---
 layout: docs.njk
 title: Contributing
+description: Contribute to dart_mutant. Learn how to build from source, run tests, add mutation operators, and submit pull requests.
 ---
 
 # Contributing

@@ -5,3 +5,4 @@ mutation-reports/
 _site/
 node_modules/
 .commandtree/
+.playwright-mcp/

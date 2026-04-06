@@ -1,11 +1,12 @@
 ---
 layout: docs.njk
 title: Introduction
+description: Introduction to dart_mutant, a mutation testing tool for Dart that uses tree-sitter AST parsing to generate syntactically valid mutants.
 ---
 
 # Introduction to dart_mutant
 
-**dart_mutant** is a blazingly fast mutation testing tool for Dart that uses tree-sitter AST parsing to generate syntactically valid mutations.
+**dart_mutant** is a mutation testing tool for Dart that uses tree-sitter AST parsing to generate syntactically valid mutations and runs `dart test` against each mutant in parallel.
 
 ## What is Mutation Testing?
 

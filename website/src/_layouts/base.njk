@@ -15,22 +15,81 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="{{ description or 'dart_mutant - Blazingly fast mutation testing for Dart using AST-based mutations' }}"
+      content="{{ description or 'dart_mutant is a mutation testing tool for Dart. It uses tree-sitter AST parsing to generate syntactically valid mutants and runs dart test in parallel.' }}"
     />
     <meta
       name="keywords"
-      content="dart, mutation testing, test quality, code coverage, dart_mutant"
+      content="dart mutation testing, dart test quality, dart_mutant, dart AST mutation, tree-sitter dart, mutation score, dart unit testing, Stryker dart"
     />
-
-    <!-- Open Graph -->
-    <meta property="og:title" content="{{ title or 'dart_mutant' }} - Mutation Testing for Dart" />
-    <meta
-      property="og:description"
-      content="{{ description or 'Hunt down weak tests with AST-based mutation testing' }}"
-    />
-    <meta property="og:type" content="website" />
+    <meta name="author" content="Nimblesite" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
 
     <title>{{ title or 'dart_mutant' }} | Mutation Testing for Dart</title>
+
+    {% set siteUrl = 'https://dartmutant.dev' %}
+    {% set pagePath = page.url or '/' %}
+    {% set canonicalUrl = siteUrl + pagePath %}
+    {% set ogImage = siteUrl + '/images/og-image.svg' %}
+    {% set pageTitle = title or 'dart_mutant' %}
+    {% set pageDesc = description or 'dart_mutant is a mutation testing tool for Dart. AST-based mutations that reveal gaps in your test suite.' %}
+
+    <!-- Canonical -->
+    <link rel="canonical" href="{{ canonicalUrl }}" />
+
+    <!-- Open Graph -->
+    <meta property="og:site_name" content="dart_mutant" />
+    <meta property="og:title" content="{{ pageTitle }} | Mutation Testing for Dart" />
+    <meta property="og:description" content="{{ pageDesc }}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="{{ canonicalUrl }}" />
+    <meta property="og:image" content="{{ ogImage }}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="dart_mutant - Mutation Testing for Dart" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="{{ pageTitle }} | Mutation Testing for Dart" />
+    <meta name="twitter:description" content="{{ pageDesc }}" />
+    <meta name="twitter:image" content="{{ ogImage }}" />
+    <meta name="twitter:image:alt" content="dart_mutant - Mutation Testing for Dart" />
+
+    <!-- JSON-LD: SoftwareApplication + Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "SoftwareApplication",
+          "name": "dart_mutant",
+          "url": "https://dartmutant.dev",
+          "description": "A mutation testing tool for Dart. Uses tree-sitter AST parsing to generate syntactically valid mutants and runs dart test against each mutation in parallel.",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "Linux, macOS, Windows",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          },
+          "license": "https://opensource.org/licenses/MIT",
+          "programmingLanguage": "Rust",
+          "codeRepository": "https://github.com/Nimblesite/dart_mutant",
+          "author": {
+            "@type": "Organization",
+            "name": "Nimblesite",
+            "url": "https://nimblesite.co"
+          }
+        },
+        {
+          "@type": "Organization",
+          "name": "Nimblesite",
+          "url": "https://nimblesite.co",
+          "logo": "https://dartmutant.dev/images/og-image.svg"
+        }
+      ]
+    }
+    </script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />

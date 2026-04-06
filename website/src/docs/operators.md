@@ -1,6 +1,7 @@
 ---
 layout: docs.njk
 title: Mutation Operators
+description: Complete list of dart_mutant mutation operators including arithmetic, comparison, logical, null-safety, control-flow, and literal mutations.
 ---
 
 # Mutation Operators
