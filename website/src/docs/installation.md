@@ -1,50 +1,53 @@
 ---
 layout: docs.njk
 title: Installation
-description: Install dart_mutant on macOS, Linux, and Windows via Homebrew, Cargo, or prebuilt release binaries.
+description: Install dart_mutant on macOS via Homebrew, on Windows via Scoop, or build from source on any platform.
 ---
 
 # Installation
 
-## Homebrew (macOS)
+## macOS (Apple Silicon) — Homebrew
 
-The easiest way to install on macOS:
+Install via the [Nimblesite Homebrew tap](https://github.com/Nimblesite/homebrew-tap):
 
 ```bash
-brew tap Nimblesite/tap
-brew install dart_mutant
+brew install nimblesite/tap/dart_mutant
 ```
 
 To upgrade:
 
 ```bash
+brew update
 brew upgrade dart_mutant
+```
+
+## Windows (x64) — Scoop
+
+Install via the [Nimblesite Scoop bucket](https://github.com/Nimblesite/scoop-bucket):
+
+```powershell
+scoop bucket add nimblesite https://github.com/Nimblesite/scoop-bucket
+scoop install dart_mutant
+```
+
+To upgrade:
+
+```powershell
+scoop update dart_mutant
 ```
 
 ## Pre-built Binaries
 
-Download the latest release from the [releases page](https://github.com/Nimblesite/dart_mutant/releases):
+Pre-built binaries for `aarch64-apple-darwin` and `x86_64-pc-windows-msvc` are
+published on the [releases page](https://github.com/Nimblesite/dart_mutant/releases).
+Linux and Intel macOS users should install [from source](#build-from-source).
 
 ```bash
 # macOS (Apple Silicon)
-curl -L https://github.com/Nimblesite/dart_mutant/releases/latest/download/dart_mutant-aarch64-apple-darwin.tar.gz | tar xz
+VERSION=v0.1.0
+curl -L "https://github.com/Nimblesite/dart_mutant/releases/download/${VERSION}/dart_mutant-${VERSION}-aarch64-apple-darwin.tar.gz" | tar xz
 sudo mv dart_mutant /usr/local/bin/
-
-# macOS (Intel)
-curl -L https://github.com/Nimblesite/dart_mutant/releases/latest/download/dart_mutant-x86_64-apple-darwin.tar.gz | tar xz
-sudo mv dart_mutant /usr/local/bin/
-
-# Linux (x86_64)
-curl -L https://github.com/Nimblesite/dart_mutant/releases/latest/download/dart_mutant-x86_64-unknown-linux-gnu.tar.gz | tar xz
-sudo mv dart_mutant /usr/local/bin/
-
-# Windows (PowerShell)
-Invoke-WebRequest -Uri https://github.com/Nimblesite/dart_mutant/releases/latest/download/dart_mutant-x86_64-pc-windows-msvc.zip -OutFile dart_mutant.zip
-Expand-Archive dart_mutant.zip
-Move-Item dart_mutant\dart_mutant.exe C:\Windows\
 ```
-
-**Note:** For direct binary downloads, check the [releases page](https://github.com/Nimblesite/dart_mutant/releases) for the exact filename which includes the version number.
 
 ## Build from Source
 

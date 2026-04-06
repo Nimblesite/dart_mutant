@@ -1,21 +1,29 @@
 # dart_mutant
 
-**Hunt down weak tests.** Blazingly fast mutation testing for Dart.
+Mutation testing for Dart. AST-based, parallel, written in Rust.
 
-Code coverage lies. A line can be "covered" without being tested. dart_mutant injects bugs into your code to prove your tests actually catch them.
+Code coverage tells you what code *runs*. Mutation testing tells you what code
+your tests actually *verify*. dart_mutant injects small bugs (mutants) into
+your code and runs `dart test` to see which ones your tests catch.
 
-AST-based. Zero false positives. Every surviving mutant is a real gap.
+## Install
 
-## Quick Start
+### macOS (Apple Silicon) — Homebrew
 
 ```bash
-cd your_dart_project
-dart_mutant
+brew install nimblesite/tap/dart_mutant
 ```
 
-Open `./mutation-reports/mutation-report.html` to see what your tests missed.
+### Windows (x64) — Scoop
 
-## Installation
+```powershell
+scoop bucket add nimblesite https://github.com/Nimblesite/scoop-bucket
+scoop install dart_mutant
+```
+
+### Other platforms — from source
+
+Requires [Rust](https://rustup.rs/) 1.75+:
 
 ```bash
 git clone https://github.com/Nimblesite/dart_mutant
@@ -24,95 +32,62 @@ cargo build --release
 export PATH="$PATH:$(pwd)/target/release"
 ```
 
-### Homebrew (macOS / Linux)
+## Usage
 
 ```bash
-brew tap Nimblesite/tap
-brew install dart_mutant
+cd your_dart_project
+dart_mutant
 ```
 
-## Key Options
+Open `./mutation-reports/mutation-report.html` to see what your tests missed.
+
+## Common options
 
 ```bash
-# Parallel execution (default: CPU count)
-dart_mutant --parallel 8
-
-# Quick feedback with sampling
-dart_mutant --sample 50
-
-# CI threshold - fail if score < 80%
-dart_mutant --threshold 80
-
-# Incremental - only test changed files
-dart_mutant --incremental --base-ref main
+dart_mutant -j 8                          # parallel jobs (default: CPU count)
+dart_mutant --sample 50                   # quick feedback on a subset
+dart_mutant --threshold 80                # fail if score < 80
+dart_mutant --incremental --base-ref main # only test changed files
 ```
 
-## AI Report
+Full reference: `dart_mutant --help`.
 
-Generate a report optimized for AI assistants:
+## Reports
 
-```bash
-dart_mutant --ai-report
-```
-
-Creates `mutation-report-ai.md` - paste directly into Claude, ChatGPT, or Copilot:
-
-- **Surviving mutants grouped by file** (worst first)
-- **Exact mutations** with line numbers
-- **Test hints** for each mutation type
-- **Copy-paste references** in `file:line` format
-
-Have AI write your missing tests:
-
-```
-Here's my mutation report. Write tests to kill these surviving mutants:
-
-[paste mutation-report-ai.md]
-```
-
-## Report Formats
-
-| Flag | Output | Use Case |
-|------|--------|----------|
-| `--html` | Interactive HTML dashboard | Human review |
+| Flag | Output | Use case |
+|---|---|---|
+| `--html` *(default)* | Interactive HTML dashboard | Human review |
 | `--json` | Stryker-compatible JSON | CI dashboards |
-| `--ai-report` | LLM-optimized markdown | AI-assisted test writing |
 | `--junit` | JUnit XML | CI test results |
+| `--ai-report` | LLM-optimized markdown | Paste into Claude/ChatGPT |
 
-## Mutation Operators
+The AI report groups surviving mutants by file with line numbers and test
+hints, ready for an LLM to write the missing tests.
 
-| Category | Mutations |
-|----------|-----------|
+## Mutation operators
+
+| Category | Examples |
+|---|---|
 | Arithmetic | `+` ↔ `-`, `*` ↔ `/`, `++` ↔ `--` |
 | Comparison | `>` ↔ `>=`, `<` ↔ `<=`, `==` ↔ `!=` |
 | Logical | `&&` ↔ `\|\|`, `!` removal |
-| Null Safety | `??` removal, `?.` → `.` |
-| Control Flow | `if(x)` → `if(true/false)` |
+| Null safety | `??` removal, `?.` → `.` |
+| Control flow | `if(x)` → `if(true)` / `if(false)` |
 | Literals | `true` ↔ `false`, `"str"` → `""` |
+
+See [docs/operators](https://dartmutant.dev/docs/operators/) for the full list.
 
 ## Results
 
-- **Killed**: Test caught the mutation (good)
-- **Survived**: Test missed it (write more tests!)
-- **Timeout**: Infinite loop (counts as killed)
-
-**80%+ mutation score = strong test suite.** Survived mutants show exactly where your tests are weak.
-
-## AI-Powered Mutation Discovery
-
-```bash
-# Claude finds high-value mutation spots
-export ANTHROPIC_API_KEY=your_key
-dart_mutant --ai anthropic
-
-# Local Ollama
-dart_mutant --ai ollama --ollama-model codellama
-```
+- **Killed** — a test failed when the mutation was applied (good)
+- **Survived** — every test still passed (a gap in your suite)
+- **Timeout** — the mutation caused the test to hang (counted as killed)
 
 ## License
 
-MIT License. Copyright (c) 2026 Nimblesite. See [LICENSE](LICENSE) for the full text.
+MIT. Copyright (c) 2026 Nimblesite. See [LICENSE](LICENSE).
 
 ---
 
-Maintained by [Nimblesite](https://nimblesite.co). Source on [GitHub](https://github.com/Nimblesite/dart_mutant).
+Maintained by [Nimblesite](https://nimblesite.co). Docs at
+[dartmutant.dev](https://dartmutant.dev).

@@ -2,8 +2,9 @@
 name: Deploy Pages
 
 on:
-  # Only deploys on release — triggered by release.yml via workflow_dispatch.
+  # Triggered by release.yml's deploy-website job after a successful release.
   # Never on push to main (website must not get ahead of the actual release).
+  # Can also be dispatched manually from the Actions tab if needed.
   workflow_dispatch:
 
 permissions:
