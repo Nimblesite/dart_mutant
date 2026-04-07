@@ -21,6 +21,9 @@ jobs:
           - target: aarch64-apple-darwin
             os: macos-latest
             archive: tar.gz
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            archive: tar.gz
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             archive: zip
@@ -139,14 +142,24 @@ jobs:
           repository: Nimblesite/homebrew-tap
           token: ${{ secrets.BREW_SCOOP_PAT }}
 
-      - name: Download release asset and get SHA256
+      - name: Download release assets and compute SHA256s
         run: |
-          curl -L -o dart_mutant.tar.gz "https://github.com/Nimblesite/dart_mutant/releases/download/${{ github.ref_name }}/dart_mutant-${{ github.ref_name }}-aarch64-apple-darwin.tar.gz"
-          SHA256=$(shasum -a 256 dart_mutant.tar.gz | cut -d ' ' -f 1)
-          echo "SHA256=$SHA256" >> $GITHUB_ENV
-          VERSION_NUM="${{ github.ref_name }}"
-          VERSION_NUM="${VERSION_NUM#v}"
-          echo "VERSION_NUM=$VERSION_NUM" >> $GITHUB_ENV
+          TAG="${{ github.ref_name }}"
+          BASE="https://github.com/Nimblesite/dart_mutant/releases/download/${TAG}"
+
+          curl -L -o macos.tar.gz "${BASE}/dart_mutant-${TAG}-aarch64-apple-darwin.tar.gz"
+          SHA256_MACOS=$(sha256sum macos.tar.gz | cut -d ' ' -f 1)
+
+          curl -L -o linux.tar.gz "${BASE}/dart_mutant-${TAG}-x86_64-unknown-linux-gnu.tar.gz"
+          SHA256_LINUX=$(sha256sum linux.tar.gz | cut -d ' ' -f 1)
+
+          VERSION_NUM="${TAG#v}"
+
+          {
+            echo "SHA256_MACOS=$SHA256_MACOS"
+            echo "SHA256_LINUX=$SHA256_LINUX"
+            echo "VERSION_NUM=$VERSION_NUM"
+          } >> "$GITHUB_ENV"
 
       - name: Update formula
         env:
@@ -165,7 +178,14 @@ jobs:
             on_macos do
               on_arm do
                 url "https://github.com/Nimblesite/dart_mutant/releases/download/${VERSION}/dart_mutant-${VERSION}-aarch64-apple-darwin.tar.gz"
-                sha256 "${SHA256}"
+                sha256 "${SHA256_MACOS}"
+              end
+            end
+
+            on_linux do
+              on_intel do
+                url "https://github.com/Nimblesite/dart_mutant/releases/download/${VERSION}/dart_mutant-${VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+                sha256 "${SHA256_LINUX}"
               end
             end
 

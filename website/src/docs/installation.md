@@ -1,18 +1,21 @@
 ---
 layout: docs.njk
 title: Installation
-description: Install dart_mutant on macOS via Homebrew, on Windows via Scoop, or build from source on any platform.
+description: Install dart_mutant on macOS and Linux via Homebrew, on Windows via Scoop, or build from source on any platform.
 ---
 
 # Installation
 
-## macOS (Apple Silicon) — Homebrew
+## macOS (Apple Silicon) and Linux (x64) — Homebrew
 
 Install via the [Nimblesite Homebrew tap](https://github.com/Nimblesite/homebrew-tap):
 
 ```bash
 brew install nimblesite/tap/dart_mutant
 ```
+
+This works on macOS (Apple Silicon) and any Linux distro with
+[Homebrew on Linux](https://docs.brew.sh/Homebrew-on-Linux) installed.
 
 To upgrade:
 
@@ -38,14 +41,24 @@ scoop update dart_mutant
 
 ## Pre-built Binaries
 
-Pre-built binaries for `aarch64-apple-darwin` and `x86_64-pc-windows-msvc` are
-published on the [releases page](https://github.com/Nimblesite/dart_mutant/releases).
-Linux and Intel macOS users should install [from source](#build-from-source).
+Pre-built binaries are published on the
+[releases page](https://github.com/Nimblesite/dart_mutant/releases) for:
+
+- `aarch64-apple-darwin` (macOS, Apple Silicon)
+- `x86_64-unknown-linux-gnu` (Linux, x86_64)
+- `x86_64-pc-windows-msvc` (Windows, x86_64)
+
+Intel macOS and ARM Linux users should install [from source](#build-from-source).
 
 ```bash
 # macOS (Apple Silicon)
 VERSION=v0.1.0
 curl -L "https://github.com/Nimblesite/dart_mutant/releases/download/${VERSION}/dart_mutant-${VERSION}-aarch64-apple-darwin.tar.gz" | tar xz
+sudo mv dart_mutant /usr/local/bin/
+
+# Linux (x86_64)
+VERSION=v0.1.0
+curl -L "https://github.com/Nimblesite/dart_mutant/releases/download/${VERSION}/dart_mutant-${VERSION}-x86_64-unknown-linux-gnu.tar.gz" | tar xz
 sudo mv dart_mutant /usr/local/bin/
 ```
 

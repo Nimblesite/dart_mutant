@@ -8,11 +8,14 @@ your code and runs `dart test` to see which ones your tests catch.
 
 ## Install
 
-### macOS (Apple Silicon) — Homebrew
+### macOS (Apple Silicon) and Linux (x64) — Homebrew
 
 ```bash
 brew install nimblesite/tap/dart_mutant
 ```
+
+Works on macOS (Apple Silicon) and any Linux distro with
+[Homebrew on Linux](https://docs.brew.sh/Homebrew-on-Linux) installed.
 
 ### Windows (x64) — Scoop
 
