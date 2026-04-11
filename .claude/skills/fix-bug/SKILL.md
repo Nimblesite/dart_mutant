@@ -8,6 +8,9 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 
 # Bug Fix Skill — Test-First Workflow
 
+⚠️ TEST FIRST ⚠️
+⚠️ TDD APPROACH ⚠️
+
 You MUST follow this exact workflow. Do NOT skip steps. Do NOT fix the bug before writing a failing test.
 
 ## Step 1: Understand the Bug
@@ -19,7 +22,7 @@ You MUST follow this exact workflow. Do NOT skip steps. Do NOT fix the bug befor
 
 ## Step 2: Write a Failing Test
 
-- Write a test that **directly exercises the buggy behavior**
+- Write a test that **FAILS because of the buggy behavior**
 - The test must assert the **correct/expected** behavior — so it FAILS against the current broken code
 - The test name should clearly describe the bug (e.g., `test_orange_color_not_applied_to_head`)
 - Use the project's existing test framework and conventions
