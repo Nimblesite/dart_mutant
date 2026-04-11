@@ -491,7 +491,25 @@ fn is_library_directive_string(node: &Node<'_>) -> bool {
 mod tests {
     use super::*;
     use crate::mutation::MutationOperator;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
+
+    fn write_dart_file(dir: &tempfile::TempDir, path: &str, source: &str) -> PathBuf {
+        let file_path = dir.path().join(path);
+        let parent = file_path.parent().unwrap_or(dir.path());
+        std::fs::create_dir_all(parent).unwrap();
+        std::fs::write(&file_path, source).unwrap();
+        file_path
+    }
+
+    fn parse_mutations(source: &str) -> Vec<Mutation> {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = write_dart_file(&dir, "lib/sample.dart", source);
+        parse_and_find_mutations(&file_path).unwrap()
+    }
+
+    fn has_operator(mutations: &[Mutation], operator: MutationOperator) -> bool {
+        mutations.iter().any(|m| m.operator == operator)
+    }
 
     #[test]
     fn test_parse_simple_dart() {
@@ -534,5 +552,151 @@ mod tests {
             vec!["'hello'"],
             "import/export/part/part of directives must not be mutated"
         );
+    }
+
+    #[test]
+    fn test_parse_and_find_mutations_covers_core_operator_families() {
+        let source = r#"
+            import 'package:example/foo.dart';
+
+            class Example {
+              int run(int a, int b, bool flag, String? value) {
+                var sum = a + b;
+                var diff = a - b;
+                var prod = a * b;
+                var div = a / b;
+                var mod = a % b;
+                var lt = a < b;
+                var lte = a <= b;
+                var gt = a > b;
+                var gte = a >= b;
+                var eq = a == b;
+                var neq = a != b;
+                var anded = flag && a > 0;
+                var ored = flag || b > 0;
+                var negated = !flag;
+                ++a;
+                b--;
+                var truth = true;
+                var lie = false;
+                var fallback = value ?? 'fallback';
+                var length = value?.length;
+                if (a > 0) {
+                  return 1;
+                }
+                var empty = '';
+                var word = 'hello';
+                var interpolated = 'value $a';
+                return sum + diff + prod + div.toInt() + mod + length!;
+              }
+            }
+        "#;
+        let mutations = parse_mutations(source);
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::ArithmeticAddToSub
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::ArithmeticSubToAdd
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::ArithmeticMulToDiv
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::ArithmeticDivToMul
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::ArithmeticModToMul
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::ComparisonLtToLte
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::ComparisonLteToLt
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::ComparisonGtToGte
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::ComparisonGteToGt
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::ComparisonEqToNeq
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::ComparisonNeqToEq
+        ));
+        assert!(has_operator(&mutations, MutationOperator::LogicalAndToOr));
+        assert!(has_operator(&mutations, MutationOperator::LogicalOrToAnd));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::LogicalNotRemoval
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::UnaryIncrementToDecrement
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::UnaryDecrementToIncrement
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::BooleanTrueToFalse
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::BooleanFalseToTrue
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::NullCoalescingRemoval
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::ControlFlowIfConditionTrue
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::ControlFlowIfConditionFalse
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::StringEmptyToNonEmpty
+        ));
+        assert!(has_operator(
+            &mutations,
+            MutationOperator::StringNonEmptyToEmpty
+        ));
+    }
+
+    #[test]
+    fn test_string_mutations_skip_interpolated_and_directive_strings() {
+        let source = r#"
+            export 'src/library.dart';
+
+            String message(int value) {
+              var interpolated = 'value $value';
+              return 'plain';
+            }
+        "#;
+        let mutations = parse_mutations(source);
+        let originals: Vec<_> = mutations
+            .iter()
+            .filter(|m| matches!(m.operator, MutationOperator::StringNonEmptyToEmpty))
+            .map(|m| m.original.as_str())
+            .collect();
+
+        assert_eq!(originals, vec!["'plain'"]);
     }
 }
