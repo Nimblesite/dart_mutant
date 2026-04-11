@@ -427,6 +427,10 @@ fn find_string_mutation(
     file_path: &Path,
     mutations: &mut Vec<Mutation>,
 ) {
+    if is_library_directive_string(node) {
+        return;
+    }
+
     let text = get_node_text(node, source);
 
     // Skip interpolated strings
@@ -464,6 +468,22 @@ fn find_string_mutation(
             MutationOperator::StringNonEmptyToEmpty,
         ));
     }
+}
+
+fn is_library_directive_string(node: &Node<'_>) -> bool {
+    let mut current = *node;
+
+    while let Some(parent) = current.parent() {
+        if matches!(
+            parent.kind(),
+            "import_or_export" | "part_directive" | "part_of_directive"
+        ) {
+            return true;
+        }
+        current = parent;
+    }
+
+    false
 }
 
 #[cfg(test)]
