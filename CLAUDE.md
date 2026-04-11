@@ -1,6 +1,8 @@
 <!-- agent-pmo:3140e31 -->
 # dart_mutant — Agent Instructions
 
+⚠️ CRITICAL: **Reduce token usage.** Check file size before loading. Write less. Delete fluff and dead/duplicate code/docs. ⚠️
+
 > Read this entire file before writing any code.
 > These rules are NON-NEGOTIABLE. Violations will be rejected in review.
 
