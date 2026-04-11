@@ -470,6 +470,8 @@ fn find_string_mutation(
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+    use crate::mutation::MutationOperator;
+    use std::path::Path;
 
     #[test]
     fn test_parse_simple_dart() {
@@ -484,5 +486,33 @@ mod tests {
 
         let tree = parse_dart(source).unwrap();
         assert!(!tree.root_node().has_error());
+    }
+
+    #[test]
+    fn test_string_mutations_skip_library_directives() {
+        let source = r#"
+            import 'package:example/foo.dart';
+            export 'src/bar.dart';
+            part 'src/baz.dart';
+            part of 'package:example/library.dart';
+
+            const greeting = 'hello';
+        "#;
+        let tree = parse_dart(source).unwrap();
+        let mut mutations = Vec::new();
+
+        find_mutations_in_tree(&tree, source, Path::new("sample.dart"), &mut mutations);
+
+        let string_mutations: Vec<_> = mutations
+            .iter()
+            .filter(|m| matches!(m.operator, MutationOperator::StringNonEmptyToEmpty))
+            .map(|m| m.original.as_str())
+            .collect();
+
+        assert_eq!(
+            string_mutations,
+            vec!["'hello'"],
+            "import/export/part/part of directives must not be mutated"
+        );
     }
 }
