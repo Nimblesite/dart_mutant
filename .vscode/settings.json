@@ -1,5 +1,5 @@
 {
-    "_agent_pmo": "5547fd2",
+    "_agent_pmo": "3140e31",
     "rust-analyzer.cargo.allTargets": true,
     "rust-analyzer.cargo.buildScripts.enable": true,
     "rust-analyzer.check.command": "clippy",

@@ -3,7 +3,7 @@ name: ci-prep
 description: Prepares the current branch for CI by running the exact same steps locally and fixing issues. If CI is already failing, fetches the GH Actions logs first to diagnose. Use before pushing, when CI is red, or when the user says "fix ci".
 argument-hint: "[--failing] [optional job name to focus on]"
 ---
-<!-- agent-pmo:5547fd2 -->
+<!-- agent-pmo:3140e31 -->
 
 # CI Prep
 
@@ -44,16 +44,16 @@ Read **every line** of `--log-failed` output. For each failure note the exact fi
 
 1. Find the CI workflow file at `.github/workflows/ci.yml`.
 2. Read the workflow file completely. Parse every job and every step.
-3. Extract the ordered list of commands CI actually runs. For this repo the `ci` job runs: `make lint`, `make test`, `make coverage-check`, `make build` (plus `cargo install cargo-llvm-cov` and `dart-lang/setup-dart` for the Dart SDK that integration tests need).
-4. Note environment variables like `COVERAGE_THRESHOLD_RUST` and any matrix/conditional steps.
+3. Extract the ordered list of commands CI actually runs. Do NOT assume — re-read the workflow each time. For this repo the `ci` job currently runs: `make lint`, `make test`, `make build` (plus `cargo install cargo-llvm-cov` and `dart-lang/setup-dart` for the Dart SDK that integration tests need).
+4. Note any matrix/conditional steps.
 
-**Do NOT assume** — re-read the workflow each time, because it may have been updated.
+**Do NOT assume the steps match the above list** — re-read the workflow each time, because it may have been updated. Extract what is *actually there*.
 
 ## Step 3 — Run each CI step locally, in order
 
 Work through failures in this priority order:
 
-1. **Formatting** — `cargo fmt --all` to clear noise, then `make fmt-check`
+1. **Formatting** — `cargo fmt --all` to clear noise, then verify via `make lint` (which includes the format check)
 2. **Compilation errors** — must compile before lint/test (`cargo check --all-targets`)
 3. **Lint violations** — `cargo clippy --release --all-targets -- -D warnings`
 4. **Runtime / test failures** — fix source code to satisfy the test (`make test`)

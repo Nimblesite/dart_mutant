@@ -1,4 +1,4 @@
-# agent-pmo:5547fd2
+# agent-pmo:3140e31
 name: CI
 
 on:
@@ -31,13 +31,10 @@ jobs:
       - name: Lint
         run: make lint
 
+      # make test = fail-fast + coverage + threshold enforcement ([TEST-RULES]).
+      # Thresholds live in coverage-thresholds.json ([COVERAGE-THRESHOLDS-JSON]).
       - name: Test
         run: make test
-
-      - name: Coverage check
-        env:
-          COVERAGE_THRESHOLD: ${{ vars.COVERAGE_THRESHOLD_RUST || '85' }}
-        run: make coverage-check
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4

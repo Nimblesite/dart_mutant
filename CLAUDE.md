@@ -1,4 +1,4 @@
-<!-- agent-pmo:5547fd2 -->
+<!-- agent-pmo:3140e31 -->
 # dart_mutant — Agent Instructions
 
 > Read this entire file before writing any code.
@@ -37,6 +37,8 @@ If the TMC server is available:
 - **Functions < 20 lines.** Refactor aggressively. If a function exceeds 20 lines, split it.
 - **Files < 500 lines.** If a file exceeds 500 lines, extract modules.
 - **100% test coverage is the goal.** Never delete or skip tests. Never remove assertions.
+- **`make test` is FAIL-FAST.** Stops at first failing test. Never `--no-fail-fast`. Saves CI minutes.
+- **`make test` ALWAYS computes coverage AND enforces it.** Threshold lives in `coverage-thresholds.json` — NOT env vars, NOT GitHub repo variables. Below threshold = pipeline fails. Ratchet only.
 - **Prefer E2E/integration tests.** Unit tests are acceptable only for isolating problems.
 - **Heavy logging everywhere.** Use `tracing` (already in `Cargo.toml`). See Logging Standards.
 - **No suppressing linter warnings.** Fix the code, not the linter.
@@ -82,21 +84,24 @@ If the TMC server is available:
 ## Build Commands (cross-platform via GNU Make)
 
 All `make` targets work on Linux, macOS, and Windows. The Makefile uses OS detection
-to select portable commands.
+to select portable commands. There are exactly 7 targets — no others.
 
 ```bash
-make build          # cargo build --release
-make test           # cargo llvm-cov + coverage-check
-make lint           # cargo fmt --check + cargo clippy (errors mode)
-make fmt            # cargo fmt --all
-make fmt-check      # cargo fmt --all --check (CI uses this)
-make clean          # cargo clean + remove lcov.info
-make check          # lint + test (pre-commit)
-make ci             # lint + test + build (full CI simulation)
-make coverage       # generate HTML coverage report
-make coverage-check # assert coverage thresholds
-make setup          # install cargo-llvm-cov + rust components
+make build   # cargo build --release
+make test    # fail-fast tests + coverage + threshold enforcement (ONLY test entry point)
+make lint    # cargo fmt --check + cargo clippy (read-only, no formatting)
+make fmt     # cargo fmt --all (format in-place)
+make clean   # cargo clean + remove lcov.info
+make ci      # lint + test + build (full CI simulation)
+make setup   # install cargo-llvm-cov + rust components
 ```
+
+**`make test` is fail-fast AND enforces the coverage threshold from `coverage-thresholds.json`.**
+It exits non-zero on any test failure or coverage shortfall. Coverage thresholds live in
+`coverage-thresholds.json` at the repo root — NOT env vars, NOT GitHub repo variables.
+
+**`make fmt`** formats code in-place. **`make lint`** runs linters (read-only). **`make test`**
+runs tests with coverage. Three separate, non-overlapping targets.
 
 ## Repo Structure
 
@@ -153,7 +158,7 @@ dart_mutant/
 ## CI Notes
 
 - CI runs on Ubuntu; full integration tests require the Dart SDK (installed via `dart-lang/setup-dart@v1`).
-- Coverage is collected by `cargo-llvm-cov` and enforced via `make coverage-check` against `COVERAGE_THRESHOLD_RUST` (GitHub repo variable; default 85% for CLI tools).
+- Coverage is collected by `cargo-llvm-cov`. Threshold is enforced by `make test` via `coverage-thresholds.json` (currently 85%). No GitHub repo variables for coverage.
 - The release workflow publishes a Homebrew formula to `Nimblesite/homebrew-tap`.
 
 ## Website (SEO + AI-aware)

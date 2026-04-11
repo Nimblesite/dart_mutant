@@ -3,7 +3,7 @@ name: upgrade-packages
 description: Upgrade all Rust crate dependencies in Cargo.toml to their latest versions. Use when the user says "upgrade packages", "update dependencies", "bump versions", or "upgrade deps".
 argument-hint: "[--check-only] [--major] [crate-name]"
 ---
-<!-- agent-pmo:5547fd2 -->
+<!-- agent-pmo:3140e31 -->
 
 # Upgrade Packages
 
