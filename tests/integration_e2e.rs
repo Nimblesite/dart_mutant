@@ -840,9 +840,9 @@ mod summary_score_e2e {
 
     /// `command` without [`OUTER_GIT_VARS`], so git stays inside the copy.
     fn isolated(mut command: Command) -> Command {
-        OUTER_GIT_VARS.iter().for_each(|var| {
+        for var in OUTER_GIT_VARS {
             command.env_remove(var);
-        });
+        }
         command
     }
 
