@@ -818,6 +818,146 @@ mod glob_e2e {
     }
 }
 
+/// The console summary prints the same score as the JSON report of the
+/// same run: one decimal and a single `%`.
+///
+/// Implements [REPORT-CONSOLE-SCORE].
+mod summary_score_e2e {
+    use super::*;
+    use std::path::Path;
+
+    /// Run dart_mutant on `project` with `args`, `--json` and no color.
+    /// Returns its stdout and the `mutationScore` of its JSON report.
+    fn run_and_read_scores(project: &Path, out: &Path, args: &[&str]) -> (String, f64) {
+        let output = Command::new(binary_path())
+            .args(["--path", project.to_str().unwrap(), "--json"])
+            .args(["--output", out.to_str().unwrap()])
+            .args(args)
+            .env("NO_COLOR", "1")
+            .env_remove("CLICOLOR_FORCE")
+            .output()
+            .expect("Failed to execute command");
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(output.status.success(), "run failed:\n{stdout}{stderr}");
+        let json = std::fs::read_to_string(out.join("mutation-report.json")).expect("JSON report");
+        let report: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
+        let score = report["mutationScore"].as_f64().expect("mutationScore");
+        (stdout, score)
+    }
+
+    /// The number on the summary's score line: the only stdout line that,
+    /// trimmed, is a number followed by exactly one `%`.
+    fn console_score(stdout: &str) -> String {
+        let scores: Vec<&str> = stdout
+            .lines()
+            .filter_map(|line| line.trim().strip_suffix('%'))
+            .filter(|number| number.parse::<f64>().is_ok())
+            .collect();
+        assert_eq!(scores.len(), 1, "expected one score line in:\n{stdout}");
+        scores[0].to_owned()
+    }
+
+    /// Run `git` with `args` in `dir`; `true` when it succeeds.
+    fn git(dir: &Path, args: &[&str]) -> bool {
+        Command::new("git")
+            .args(args)
+            .current_dir(dir)
+            .output()
+            .is_ok_and(|o| o.status.success())
+    }
+
+    /// `git diff --quiet` passes on the committed baseline and fails as
+    /// soon as a mutant edits a tracked file, so every mutant is killed.
+    #[test]
+    fn all_killed_run_prints_100_percent_like_the_json() {
+        let Some((temp, project)) = copy_fixture_to_temp("simple_dart_project") else {
+            println!("Skipping: failed to copy fixtures");
+            return;
+        };
+        let committed = git(&project, &["init", "-q"])
+            && git(&project, &["add", "-A"])
+            && git(
+                &project,
+                &[
+                    "-c",
+                    "user.name=t",
+                    "-c",
+                    "user.email=t@t",
+                    "commit",
+                    "-qm",
+                    "f",
+                ],
+            );
+        if !committed {
+            println!("Skipping: git not available");
+            return;
+        }
+        let out = temp.path().join("reports");
+
+        let (stdout, json) = run_and_read_scores(
+            &project,
+            &out,
+            &[
+                "--test-command",
+                "git diff --quiet",
+                "--sample",
+                "5",
+                "--timeout",
+                "30",
+            ],
+        );
+
+        assert!(
+            (json - 100.0).abs() < f64::EPSILON,
+            "score {json}\n{stdout}"
+        );
+        assert_eq!(console_score(&stdout), format!("{json:.1}"));
+    }
+
+    /// A sampled run with `dart test` can land on any score; the console
+    /// must print the JSON's score with one decimal.
+    #[test]
+    fn mixed_run_prints_the_json_score_with_one_decimal() {
+        if !dart_available() {
+            println!("Skipping: Dart not available");
+            return;
+        }
+        let Some((temp, project)) = copy_fixture_to_temp("simple_dart_project") else {
+            println!("Skipping: failed to copy fixtures");
+            return;
+        };
+        let pub_get = Command::new("dart")
+            .args(["pub", "get"])
+            .current_dir(&project)
+            .output();
+        if !pub_get.is_ok_and(|o| o.status.success()) {
+            println!("Skipping: dart pub get failed");
+            return;
+        }
+        let out = temp.path().join("reports");
+
+        let (stdout, json) = run_and_read_scores(
+            &project,
+            &out,
+            &["--sample", "6", "--timeout", "60", "--parallel", "1"],
+        );
+
+        assert_eq!(console_score(&stdout), format!("{json:.1}"));
+    }
+
+    /// A dry run tests no mutant: both reports say 0.0.
+    #[test]
+    fn dry_run_prints_zero_percent_like_the_json() {
+        let out = tempfile::tempdir().expect("temp dir");
+
+        let (stdout, json) = run_and_read_scores(&fixtures_path(), out.path(), &["--dry-run"]);
+
+        assert!(json.abs() < f64::EPSILON, "score {json}\n{stdout}");
+        assert_eq!(console_score(&stdout), format!("{json:.1}"));
+    }
+}
+
 mod void_call_removal {
     use super::*;
 

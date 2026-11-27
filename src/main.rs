@@ -386,8 +386,10 @@ fn print_summary(result: &MutationResult, duration: std::time::Duration) {
 
     let score_bar = create_score_bar(result.mutation_score);
     println!("  Mutation Score: {}", score_bar);
+    // Implements [REPORT-CONSOLE-SCORE]: the text already holds `{:.1}%`;
+    // a precision on a string would cut it to one character.
     println!(
-        "  {:.1}%\n",
+        "  {}\n",
         match score_color {
             "green" => format!("{:.1}%", result.mutation_score).green(),
             "yellow" => format!("{:.1}%", result.mutation_score).yellow(),
