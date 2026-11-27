@@ -826,10 +826,30 @@ mod summary_score_e2e {
     use super::*;
     use std::path::Path;
 
+    /// Git variables a parent hook or `git rebase -x` may export. Left in
+    /// place, git in the temp copy would read and commit to the outer repo.
+    const OUTER_GIT_VARS: &[&str] = &[
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_COMMON_DIR",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_PREFIX",
+    ];
+
+    /// `command` without [`OUTER_GIT_VARS`], so git stays inside the copy.
+    fn isolated(mut command: Command) -> Command {
+        OUTER_GIT_VARS.iter().for_each(|var| {
+            command.env_remove(var);
+        });
+        command
+    }
+
     /// Run dart_mutant on `project` with `args`, `--json` and no color.
     /// Returns its stdout and the `mutationScore` of its JSON report.
     fn run_and_read_scores(project: &Path, out: &Path, args: &[&str]) -> (String, f64) {
-        let output = Command::new(binary_path())
+        let output = isolated(Command::new(binary_path()))
             .args(["--path", project.to_str().unwrap(), "--json"])
             .args(["--output", out.to_str().unwrap()])
             .args(args)
@@ -858,55 +878,69 @@ mod summary_score_e2e {
         scores[0].to_owned()
     }
 
-    /// Run `git` with `args` in `dir`; `true` when it succeeds.
-    fn git(dir: &Path, args: &[&str]) -> bool {
-        Command::new("git")
+    /// Run `git` with `args` in `dir`, asserting that it succeeds.
+    fn git(dir: &Path, args: &[&str]) {
+        let output = isolated(Command::new("git"))
             .args(args)
             .current_dir(dir)
             .output()
-            .is_ok_and(|o| o.status.success())
+            .expect("git should start");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(output.status.success(), "git {args:?} failed:\n{stderr}");
+    }
+
+    /// A temp copy of `simple_dart_project` with every file committed, or
+    /// `None` when git is not installed. Signing, hooks and ignore rules
+    /// from the user's config are turned off, so a failed commit fails
+    /// the test instead of skipping it.
+    fn committed_fixture() -> Option<(tempfile::TempDir, PathBuf)> {
+        if isolated(Command::new("git"))
+            .arg("--version")
+            .output()
+            .is_err()
+        {
+            println!("Skipping: git not available");
+            return None;
+        }
+        let (temp, project) = copy_fixture_to_temp("simple_dart_project")?;
+        git(&project, &["init", "-q"]);
+        git(&project, &["add", "-A", "-f"]);
+        let identity = ["-c", "user.name=t", "-c", "user.email=t@t"];
+        let commit = [
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--no-verify",
+            "-qm",
+            "f",
+        ];
+        git(&project, &[&identity[..], &commit[..]].concat());
+        Some((temp, project))
+    }
+
+    /// Run on a committed fixture with `test_command`, one mutant at a time
+    /// and no sampling, so the result is the same on every run.
+    fn run_committed_fixture(test_command: &str) -> Option<(String, f64)> {
+        let (temp, project) = committed_fixture()?;
+        let out = temp.path().join("reports");
+        let args = [
+            "--test-command",
+            test_command,
+            "--parallel",
+            "1",
+            "--timeout",
+            "30",
+        ];
+        Some(run_and_read_scores(&project, &out, &args))
     }
 
     /// `git diff --quiet` passes on the committed baseline and fails as
     /// soon as a mutant edits a tracked file, so every mutant is killed.
     #[test]
     fn all_killed_run_prints_100_percent_like_the_json() {
-        let Some((temp, project)) = copy_fixture_to_temp("simple_dart_project") else {
-            println!("Skipping: failed to copy fixtures");
+        let Some((stdout, json)) = run_committed_fixture("git diff --quiet") else {
             return;
         };
-        let committed = git(&project, &["init", "-q"])
-            && git(&project, &["add", "-A"])
-            && git(
-                &project,
-                &[
-                    "-c",
-                    "user.name=t",
-                    "-c",
-                    "user.email=t@t",
-                    "commit",
-                    "-qm",
-                    "f",
-                ],
-            );
-        if !committed {
-            println!("Skipping: git not available");
-            return;
-        }
-        let out = temp.path().join("reports");
-
-        let (stdout, json) = run_and_read_scores(
-            &project,
-            &out,
-            &[
-                "--test-command",
-                "git diff --quiet",
-                "--sample",
-                "5",
-                "--timeout",
-                "30",
-            ],
-        );
 
         assert!(
             (json - 100.0).abs() < f64::EPSILON,
@@ -915,34 +949,20 @@ mod summary_score_e2e {
         assert_eq!(console_score(&stdout), format!("{json:.1}"));
     }
 
-    /// A sampled run with `dart test` can land on any score; the console
-    /// must print the JSON's score with one decimal.
+    /// Only mutants in two of the fixture's files change what
+    /// `git diff --quiet -- <those files>` sees, so the run kills some
+    /// mutants and lets the rest survive: a score with a decimal part.
     #[test]
-    fn mixed_run_prints_the_json_score_with_one_decimal() {
-        if !dart_available() {
-            println!("Skipping: Dart not available");
-            return;
-        }
-        let Some((temp, project)) = copy_fixture_to_temp("simple_dart_project") else {
-            println!("Skipping: failed to copy fixtures");
+    fn partial_run_prints_the_json_score_with_one_decimal() {
+        let command = "git diff --quiet -- lib/calculator.dart lib/string_utils.dart";
+        let Some((stdout, json)) = run_committed_fixture(command) else {
             return;
         };
-        let pub_get = Command::new("dart")
-            .args(["pub", "get"])
-            .current_dir(&project)
-            .output();
-        if !pub_get.is_ok_and(|o| o.status.success()) {
-            println!("Skipping: dart pub get failed");
-            return;
-        }
-        let out = temp.path().join("reports");
 
-        let (stdout, json) = run_and_read_scores(
-            &project,
-            &out,
-            &["--sample", "6", "--timeout", "60", "--parallel", "1"],
+        assert!(
+            json > 0.0 && json < 100.0,
+            "expected a partial score, got {json}"
         );
-
         assert_eq!(console_score(&stdout), format!("{json:.1}"));
     }
 
