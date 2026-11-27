@@ -119,6 +119,54 @@ pub fn discover_dart_files(path: &Path, exclude_patterns: &[String]) -> Result<V
     Ok(files)
 }
 
+/// Keep the files whose path relative to `root` matches one of `globs`.
+///
+/// Implements [PARSER-DISCOVERY-GLOB]. Empty `globs` keeps every file. When
+/// `root` is itself a file it is kept: naming the file is the selection.
+/// `*` and `?` stop at path separators; `**` crosses them.
+pub fn retain_matching_globs(
+    root: &Path,
+    files: Vec<PathBuf>,
+    globs: &[String],
+) -> Result<Vec<PathBuf>> {
+    if globs.is_empty() {
+        return Ok(files);
+    }
+    let patterns = globs
+        .iter()
+        .map(|g| glob::Pattern::new(g).with_context(|| format!("invalid --glob pattern `{g}`")))
+        .collect::<Result<Vec<_>>>()?;
+    let total = files.len();
+    let kept: Vec<PathBuf> = files
+        .into_iter()
+        .filter(|file| matches_any_glob(root, file, &patterns))
+        .collect();
+    info!(
+        ?globs,
+        kept = kept.len(),
+        dropped = total - kept.len(),
+        "applied --glob filter"
+    );
+    Ok(kept)
+}
+
+/// Returns `true` when `file`, relative to `root`, matches any of `patterns`.
+fn matches_any_glob(root: &Path, file: &Path, patterns: &[glob::Pattern]) -> bool {
+    let relative = file.strip_prefix(root).unwrap_or(file);
+    if relative.as_os_str().is_empty() {
+        return true;
+    }
+    let options = glob::MatchOptions {
+        require_literal_separator: true,
+        ..glob::MatchOptions::new()
+    };
+    let matched = patterns
+        .iter()
+        .any(|p| p.matches_path_with(relative, options));
+    trace!(file = %relative.display(), matched, "checked --glob");
+    matched
+}
+
 /// Parse a Dart file and find all possible mutation locations
 pub fn parse_and_find_mutations(file_path: &Path) -> Result<Vec<Mutation>> {
     trace!(file = %file_path.display(), "parsing file for mutations");
@@ -905,6 +953,77 @@ mod tests {
         let names = file_names(&discover_dart_files(dir.path(), &[]).unwrap());
 
         assert_eq!(names, vec!["real.dart".to_string()], "got {names:?}");
+    }
+
+    /// Discover every Dart file under `dir`, then keep the ones `globs` match.
+    fn discover_with_globs(dir: &tempfile::TempDir, globs: &[&str]) -> Vec<String> {
+        let files = discover_dart_files(dir.path(), &[]).unwrap();
+        let globs: Vec<String> = globs.iter().map(ToString::to_string).collect();
+        let mut names = file_names(&retain_matching_globs(dir.path(), files, &globs).unwrap());
+        names.sort();
+        names
+    }
+
+    fn project_with_lib_bin_and_nested_files() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        write_dart_file(&dir, "lib/top.dart", "void main() {}");
+        write_dart_file(&dir, "lib/src/core/nested.dart", "void main() {}");
+        write_dart_file(&dir, "bin/cli.dart", "void main() {}");
+        dir
+    }
+
+    #[test]
+    fn test_glob_double_star_keeps_only_files_under_that_directory() {
+        let dir = project_with_lib_bin_and_nested_files();
+
+        assert_eq!(
+            discover_with_globs(&dir, &["lib/**/*.dart"]),
+            ["nested.dart", "top.dart"]
+        );
+    }
+
+    #[test]
+    fn test_glob_single_star_does_not_cross_directories() {
+        let dir = project_with_lib_bin_and_nested_files();
+
+        assert_eq!(discover_with_globs(&dir, &["lib/*.dart"]), ["top.dart"]);
+    }
+
+    #[test]
+    fn test_repeated_globs_keep_files_matching_any_of_them() {
+        let dir = project_with_lib_bin_and_nested_files();
+
+        let names = discover_with_globs(&dir, &["bin/cli.dart", "lib/src/**/*.dart"]);
+
+        assert_eq!(names, ["cli.dart", "nested.dart"]);
+    }
+
+    #[test]
+    fn test_no_glob_keeps_every_discovered_file() {
+        let dir = project_with_lib_bin_and_nested_files();
+
+        assert_eq!(
+            discover_with_globs(&dir, &[]),
+            ["cli.dart", "nested.dart", "top.dart"]
+        );
+    }
+
+    #[test]
+    fn test_file_given_as_root_is_kept_by_any_glob() {
+        let dir = project_with_lib_bin_and_nested_files();
+        let file = dir.path().join("bin").join("cli.dart");
+
+        let kept = retain_matching_globs(&file, vec![file.clone()], &["lib/**".to_string()]);
+
+        assert_eq!(kept.unwrap(), [file]);
+    }
+
+    #[test]
+    fn test_invalid_glob_is_an_error() {
+        let dir = project_with_lib_bin_and_nested_files();
+        let files = discover_dart_files(dir.path(), &[]).unwrap();
+
+        assert!(retain_matching_globs(dir.path(), files, &["lib/[.dart".to_string()]).is_err());
     }
 
     #[test]

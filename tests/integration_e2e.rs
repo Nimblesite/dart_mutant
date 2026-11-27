@@ -26,12 +26,11 @@ fn fixtures_path() -> PathBuf {
         .join("simple_dart_project")
 }
 
-/// Get the path to the dart_mutant binary (after cargo build)
+/// Get the path to the dart_mutant binary. Cargo builds it for integration
+/// tests and sets this variable, with the `.exe` suffix on Windows and the
+/// `llvm-cov` target directory under coverage.
 fn binary_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("target")
-        .join("debug")
-        .join("dart_mutant")
+    PathBuf::from(env!("CARGO_BIN_EXE_dart_mutant"))
 }
 
 /// Check if the binary exists
@@ -673,6 +672,309 @@ mod baseline_verification {
             combined.to_lowercase().contains("baseline"),
             "Expected a baseline failure message, got:\n{combined}"
         );
+    }
+}
+
+/// `--test-command` decides what runs for the baseline and every mutant.
+///
+/// Implements [RUNNER-TEST-COMMAND]. Regression tests for GitHub issue #8.
+mod test_command_e2e {
+    use super::*;
+
+    /// Statuses of every mutant in a `--json` report.
+    fn mutant_statuses(report: &std::path::Path) -> Vec<String> {
+        let json = std::fs::read_to_string(report).expect("JSON report should exist");
+        let report: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
+        report["files"]
+            .as_object()
+            .expect("files object")
+            .values()
+            .flat_map(|file| file["mutants"].as_array().cloned().unwrap_or_default())
+            .map(|mutant| mutant["status"].as_str().unwrap_or_default().to_string())
+            .collect()
+    }
+
+    /// The red-baseline suite fails under `dart test`. A command that always
+    /// succeeds passes the baseline and lets every mutant survive, which is
+    /// only possible when both runs use `--test-command`.
+    #[test]
+    fn custom_command_runs_for_baseline_and_every_mutant() {
+        if !dart_available() {
+            println!("Skipping: Dart not available");
+            return;
+        }
+        let Some((temp, project_path)) = copy_fixture_to_temp("red_baseline_project") else {
+            println!("Skipping: failed to copy fixtures");
+            return;
+        };
+        let report_dir = temp.path().join("reports");
+
+        let output = Command::new(binary_path())
+            .args(["--path", project_path.to_str().unwrap()])
+            .args(["--test-command", "dart --version"])
+            .args(["--sample", "2", "--timeout", "60", "--json"])
+            .args(["--output", report_dir.to_str().unwrap()])
+            .output()
+            .expect("Failed to execute command");
+
+        let combined = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(output.status.success(), "run should succeed:\n{combined}");
+        let statuses = mutant_statuses(&report_dir.join("mutation-report.json"));
+        assert_eq!(statuses, ["Survived", "Survived"], "\n{combined}");
+    }
+
+    /// A program that does not exist fails the run before any mutant is
+    /// tested, and the error names the program that could not start.
+    #[test]
+    fn missing_program_fails_the_run() {
+        let Some((temp, project_path)) = copy_fixture_to_temp("simple_dart_project") else {
+            println!("Skipping: failed to copy fixtures");
+            return;
+        };
+
+        let output = Command::new(binary_path())
+            .args(["--path", project_path.to_str().unwrap()])
+            .args(["--test-command", "dart_mutant_no_such_program test"])
+            .args(["--output", temp.path().join("reports").to_str().unwrap()])
+            .output()
+            .expect("Failed to execute command");
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(!output.status.success(), "run should fail:\n{stderr}");
+        assert!(
+            stderr.contains("dart_mutant_no_such_program"),
+            "got:\n{stderr}"
+        );
+    }
+
+    /// An unclosed quote is rejected up front, even in `--dry-run`.
+    #[test]
+    fn unclosed_quote_is_rejected() {
+        let output = Command::new(binary_path())
+            .args(["--path", fixtures_path().to_str().unwrap(), "--dry-run"])
+            .args(["--test-command", "flutter test --plain-name \"adds"])
+            .output()
+            .expect("Failed to execute command");
+
+        assert!(!output.status.success());
+    }
+}
+
+/// `--glob` narrows the files to mutate, relative to `--path`.
+///
+/// Implements [PARSER-DISCOVERY-GLOB].
+mod glob_e2e {
+    use super::*;
+
+    /// Number of mutations a `--dry-run` with `extra` arguments would test.
+    fn dry_run_mutation_count(path: &std::path::Path, extra: &[&str]) -> usize {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let output = Command::new(binary_path())
+            .args(["--path", path.to_str().unwrap(), "--dry-run"])
+            .args(["--output", temp.path().to_str().unwrap()])
+            .args(extra)
+            .output()
+            .expect("Failed to execute command");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .find(|line| line.contains("mutations would be tested"))
+            .and_then(|line| line.split_whitespace().next()?.parse().ok())
+            .expect("dry run should report a mutation count")
+    }
+
+    /// `--glob lib/calculator.dart` yields the same mutations as pointing
+    /// `--path` at that file, and fewer than the whole project.
+    #[test]
+    fn glob_selects_only_the_matching_file() {
+        let project = fixtures_path();
+        let calculator = project.join("lib").join("calculator.dart");
+
+        let with_glob = dry_run_mutation_count(&project, &["--glob", "lib/calculator.dart"]);
+        let whole_project = dry_run_mutation_count(&project, &[]);
+
+        assert_eq!(with_glob, dry_run_mutation_count(&calculator, &[]));
+        assert!(with_glob < whole_project, "{with_glob} vs {whole_project}");
+    }
+
+    /// A malformed pattern stops the run instead of mutating every file.
+    #[test]
+    fn invalid_glob_is_rejected() {
+        let output = Command::new(binary_path())
+            .args(["--path", fixtures_path().to_str().unwrap(), "--dry-run"])
+            .args(["--glob", "lib/[.dart"])
+            .output()
+            .expect("Failed to execute command");
+
+        assert!(!output.status.success());
+    }
+}
+
+/// The console summary prints the same score as the JSON report of the
+/// same run: one decimal and a single `%`.
+///
+/// Implements [REPORT-CONSOLE-SCORE].
+mod summary_score_e2e {
+    use super::*;
+    use std::path::Path;
+
+    /// Git variables a parent hook or `git rebase -x` may export. Left in
+    /// place, git in the temp copy would read and commit to the outer repo.
+    const OUTER_GIT_VARS: &[&str] = &[
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_COMMON_DIR",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_PREFIX",
+    ];
+
+    /// `command` without [`OUTER_GIT_VARS`], so git stays inside the copy.
+    fn isolated(mut command: Command) -> Command {
+        for var in OUTER_GIT_VARS {
+            command.env_remove(var);
+        }
+        command
+    }
+
+    /// Run dart_mutant on `project` with `args`, `--json` and no color.
+    /// Returns its stdout and the `mutationScore` of its JSON report.
+    fn run_and_read_scores(project: &Path, out: &Path, args: &[&str]) -> (String, f64) {
+        let output = isolated(Command::new(binary_path()))
+            .args(["--path", project.to_str().unwrap(), "--json"])
+            .args(["--output", out.to_str().unwrap()])
+            .args(args)
+            .env("NO_COLOR", "1")
+            .env_remove("CLICOLOR_FORCE")
+            .output()
+            .expect("Failed to execute command");
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(output.status.success(), "run failed:\n{stdout}{stderr}");
+        let json = std::fs::read_to_string(out.join("mutation-report.json")).expect("JSON report");
+        let report: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
+        let score = report["mutationScore"].as_f64().expect("mutationScore");
+        (stdout, score)
+    }
+
+    /// The number on the summary's score line: the only stdout line that,
+    /// trimmed, is a number followed by exactly one `%`.
+    fn console_score(stdout: &str) -> String {
+        let scores: Vec<&str> = stdout
+            .lines()
+            .filter_map(|line| line.trim().strip_suffix('%'))
+            .filter(|number| number.parse::<f64>().is_ok())
+            .collect();
+        assert_eq!(scores.len(), 1, "expected one score line in:\n{stdout}");
+        scores[0].to_owned()
+    }
+
+    /// Run `git` with `args` in `dir`, asserting that it succeeds.
+    fn git(dir: &Path, args: &[&str]) {
+        let output = isolated(Command::new("git"))
+            .args(args)
+            .current_dir(dir)
+            .output()
+            .expect("git should start");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(output.status.success(), "git {args:?} failed:\n{stderr}");
+    }
+
+    /// A temp copy of `simple_dart_project` with every file committed, or
+    /// `None` when git is not installed. Signing, hooks and ignore rules
+    /// from the user's config are turned off, so a failed commit fails
+    /// the test instead of skipping it.
+    fn committed_fixture() -> Option<(tempfile::TempDir, PathBuf)> {
+        if isolated(Command::new("git"))
+            .arg("--version")
+            .output()
+            .is_err()
+        {
+            println!("Skipping: git not available");
+            return None;
+        }
+        let (temp, project) = copy_fixture_to_temp("simple_dart_project")?;
+        git(&project, &["init", "-q"]);
+        git(&project, &["add", "-A", "-f"]);
+        let identity = ["-c", "user.name=t", "-c", "user.email=t@t"];
+        let commit = [
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--no-verify",
+            "-qm",
+            "f",
+        ];
+        git(&project, &[&identity[..], &commit[..]].concat());
+        Some((temp, project))
+    }
+
+    /// Run on a committed fixture with `test_command`, one mutant at a time
+    /// and no sampling, so the result is the same on every run.
+    fn run_committed_fixture(test_command: &str) -> Option<(String, f64)> {
+        let (temp, project) = committed_fixture()?;
+        let out = temp.path().join("reports");
+        let args = [
+            "--test-command",
+            test_command,
+            "--parallel",
+            "1",
+            "--timeout",
+            "30",
+        ];
+        Some(run_and_read_scores(&project, &out, &args))
+    }
+
+    /// `git diff --quiet` passes on the committed baseline and fails as
+    /// soon as a mutant edits a tracked file, so every mutant is killed.
+    #[test]
+    fn all_killed_run_prints_100_percent_like_the_json() {
+        let Some((stdout, json)) = run_committed_fixture("git diff --quiet") else {
+            return;
+        };
+
+        assert!(
+            (json - 100.0).abs() < f64::EPSILON,
+            "score {json}\n{stdout}"
+        );
+        assert_eq!(console_score(&stdout), format!("{json:.1}"));
+    }
+
+    /// Only mutants in two of the fixture's files change what
+    /// `git diff --quiet -- <those files>` sees, so the run kills some
+    /// mutants and lets the rest survive: a score with a decimal part.
+    #[test]
+    fn partial_run_prints_the_json_score_with_one_decimal() {
+        let command = "git diff --quiet -- lib/calculator.dart lib/string_utils.dart";
+        let Some((stdout, json)) = run_committed_fixture(command) else {
+            return;
+        };
+
+        assert!(
+            json > 0.0 && json < 100.0,
+            "expected a partial score, got {json}"
+        );
+        assert_eq!(console_score(&stdout), format!("{json:.1}"));
+    }
+
+    /// A dry run tests no mutant: both reports say 0.0.
+    #[test]
+    fn dry_run_prints_zero_percent_like_the_json() {
+        let out = tempfile::tempdir().expect("temp dir");
+
+        let (stdout, json) = run_and_read_scores(&fixtures_path(), out.path(), &["--dry-run"]);
+
+        assert!(json.abs() < f64::EPSILON, "score {json}\n{stdout}");
+        assert_eq!(console_score(&stdout), format!("{json:.1}"));
     }
 }
 

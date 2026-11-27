@@ -27,17 +27,24 @@ dart_mutant [OPTIONS]
 
 ## Test Execution
 
-| Option             | Description                     | Default   |
-| ------------------ | ------------------------------- | --------- |
-| `--parallel <N>`   | Number of parallel test jobs    | CPU count |
-| `--timeout <SECS>` | Per-mutation timeout in seconds | 30        |
-| `--sample <N>`     | Test only N random mutations    | All       |
+| Option                 | Description                                          | Default                        |
+| ---------------------- | ---------------------------------------------------- | ------------------------------ |
+| `--parallel <N>`       | Number of parallel test jobs                         | CPU count                      |
+| `--timeout <SECS>`     | Per-mutation timeout in seconds                      | 30                             |
+| `--sample <N>`         | Test only N random mutations                         | All                            |
+| `--test-command <CMD>` | Command run in `--path` for the baseline and mutants | `dart test --reporter=compact` |
+
+`--test-command` splits on whitespace. Quotes group a word that has spaces, and
+backslashes are literal, so Windows paths work as written.
 
 ### Examples
 
 ```bash
 # Run 8 parallel jobs
 dart_mutant --parallel 8
+
+# Flutter package: run flutter test instead of dart test
+dart_mutant --test-command "flutter test"
 
 # Quick feedback with 50 mutations, 10s timeout
 dart_mutant --sample 50 --timeout 10
@@ -48,10 +55,13 @@ dart_mutant --dry-run
 
 ## Filtering
 
-| Option                | Description                                 |
-| --------------------- | ------------------------------------------- |
-| `--glob <PATTERN>`    | Only mutate files matching glob pattern     |
-| `--exclude <PATTERN>` | Exclude files matching pattern (can repeat) |
+| Option                | Description                                                           |
+| --------------------- | --------------------------------------------------------------------- |
+| `--glob <PATTERN>`    | Only mutate files matching pattern, relative to `--path` (can repeat) |
+| `--exclude <PATTERN>` | Exclude files matching pattern (can repeat)                           |
+
+Without `--glob`, every Dart file that is not excluded is mutated. In a glob,
+`*` and `?` stop at `/`, and `**` crosses directories.
 
 ### Default Exclusions
 

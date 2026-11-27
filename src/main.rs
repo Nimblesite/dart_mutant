@@ -129,9 +129,13 @@ async fn run_mutation_testing(args: &Args) -> Result<MutationResult> {
         "starting mutation testing run"
     );
 
+    // Implements [RUNNER-TEST-COMMAND]: a malformed command fails before any work.
+    let test_command = runner::TestCommand::parse(&args.test_command)?;
+
     // Step 1: Discover Dart files
     let discover_pb = create_spinner(&multi_progress, "Discovering Dart files...");
-    let dart_files = parser::discover_dart_files(&args.path, &args.exclude)?;
+    let discovered = parser::discover_dart_files(&args.path, &args.exclude)?;
+    let dart_files = parser::retain_matching_globs(&args.path, discovered, &args.glob)?;
     discover_pb.finish_with_message(format!(
         "{} Found {} Dart files",
         "✓".green(),
@@ -250,7 +254,7 @@ async fn run_mutation_testing(args: &Args) -> Result<MutationResult> {
     } else {
         // Pre-flight: confirm the suite is green before mutating anything.
         // A red baseline would make every mutant look "killed" (a false 100%).
-        verify_baseline_or_bail(&args.path, args.timeout, &multi_progress).await?;
+        verify_baseline_or_bail(&args.path, &test_command, args.timeout, &multi_progress).await?;
 
         let test_pb = create_progress_bar(
             &multi_progress,
@@ -260,6 +264,7 @@ async fn run_mutation_testing(args: &Args) -> Result<MutationResult> {
 
         let results = runner::run_mutation_tests(
             &args.path,
+            &test_command,
             &mutations_to_test,
             args.parallel,
             args.timeout,
@@ -312,11 +317,12 @@ async fn run_mutation_testing(args: &Args) -> Result<MutationResult> {
 /// appear killed, so we refuse to produce a (bogus) mutation score.
 async fn verify_baseline_or_bail(
     path: &std::path::Path,
+    test_command: &runner::TestCommand,
     timeout: u64,
     mp: &MultiProgress,
 ) -> Result<()> {
     let pb = create_spinner(mp, "Verifying baseline (running unmutated tests)...");
-    let status = runner::verify_baseline(path, timeout).await?;
+    let status = runner::verify_baseline(path, test_command, timeout).await?;
     match status {
         runner::BaselineStatus::Passing => {
             pb.finish_with_message(format!("{} Baseline passed", "✓".green()));
@@ -380,8 +386,10 @@ fn print_summary(result: &MutationResult, duration: std::time::Duration) {
 
     let score_bar = create_score_bar(result.mutation_score);
     println!("  Mutation Score: {}", score_bar);
+    // Implements [REPORT-CONSOLE-SCORE]: the text already holds `{:.1}%`;
+    // a precision on a string would cut it to one character.
     println!(
-        "  {:.1}%\n",
+        "  {}\n",
         match score_color {
             "green" => format!("{:.1}%", result.mutation_score).green(),
             "yellow" => format!("{:.1}%", result.mutation_score).yellow(),

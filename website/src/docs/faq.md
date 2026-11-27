@@ -142,11 +142,15 @@ dart_mutant supports:
 
 ### Does it work with Flutter?
 
-Yes! dart_mutant runs `dart test` which works for Flutter packages. For Flutter app testing:
+Yes. By default dart_mutant runs `dart test`, which cannot load `flutter_test`,
+so point `--test-command` at Flutter:
 
 ```bash
 # Flutter test command
 dart_mutant --test-command "flutter test"
+
+# Flutter pinned with FVM
+dart_mutant --test-command "fvm flutter test --no-pub"
 ```
 
 ### Why are some files excluded?

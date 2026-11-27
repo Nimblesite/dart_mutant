@@ -60,9 +60,10 @@ pub struct Args {
     #[arg(short, long, default_value = ".")]
     pub path: PathBuf,
 
-    /// Glob pattern for files to mutate
-    #[arg(short, long, default_value = "lib/**/*.dart")]
-    pub glob: String,
+    /// Only mutate files matching this glob, relative to --path (can repeat).
+    /// Without it, every Dart file that is not excluded is mutated.
+    #[arg(short, long)]
+    pub glob: Vec<String>,
 
     /// Glob patterns to exclude
     #[arg(short, long, default_values_t = vec![
@@ -103,8 +104,9 @@ pub struct Args {
     #[arg(short, long)]
     pub verbose: bool,
 
-    /// Test command to run (default: dart test)
-    #[arg(long, default_value = "dart test")]
+    /// Command run in --path for the baseline and every mutant, e.g.
+    /// "flutter test". Quotes group words; backslashes are literal.
+    #[arg(long, default_value = "dart test --reporter=compact")]
     pub test_command: String,
 
     /// Sample number of mutations to test (0 = all)
