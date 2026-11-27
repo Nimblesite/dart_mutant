@@ -26,12 +26,11 @@ fn fixtures_path() -> PathBuf {
         .join("simple_dart_project")
 }
 
-/// Get the path to the dart_mutant binary (after cargo build)
+/// Get the path to the dart_mutant binary. Cargo builds it for integration
+/// tests and sets this variable, with the `.exe` suffix on Windows and the
+/// `llvm-cov` target directory under coverage.
 fn binary_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("target")
-        .join("debug")
-        .join("dart_mutant")
+    PathBuf::from(env!("CARGO_BIN_EXE_dart_mutant"))
 }
 
 /// Check if the binary exists
@@ -673,6 +672,149 @@ mod baseline_verification {
             combined.to_lowercase().contains("baseline"),
             "Expected a baseline failure message, got:\n{combined}"
         );
+    }
+}
+
+/// `--test-command` decides what runs for the baseline and every mutant.
+///
+/// Implements [RUNNER-TEST-COMMAND]. Regression tests for GitHub issue #8.
+mod test_command_e2e {
+    use super::*;
+
+    /// Statuses of every mutant in a `--json` report.
+    fn mutant_statuses(report: &std::path::Path) -> Vec<String> {
+        let json = std::fs::read_to_string(report).expect("JSON report should exist");
+        let report: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
+        report["files"]
+            .as_object()
+            .expect("files object")
+            .values()
+            .flat_map(|file| file["mutants"].as_array().cloned().unwrap_or_default())
+            .map(|mutant| mutant["status"].as_str().unwrap_or_default().to_string())
+            .collect()
+    }
+
+    /// The red-baseline suite fails under `dart test`. A command that always
+    /// succeeds passes the baseline and lets every mutant survive, which is
+    /// only possible when both runs use `--test-command`.
+    #[test]
+    fn custom_command_runs_for_baseline_and_every_mutant() {
+        if !dart_available() {
+            println!("Skipping: Dart not available");
+            return;
+        }
+        let Some((temp, project_path)) = copy_fixture_to_temp("red_baseline_project") else {
+            println!("Skipping: failed to copy fixtures");
+            return;
+        };
+        let report_dir = temp.path().join("reports");
+
+        let output = Command::new(binary_path())
+            .args(["--path", project_path.to_str().unwrap()])
+            .args(["--test-command", "dart --version"])
+            .args(["--sample", "2", "--timeout", "60", "--json"])
+            .args(["--output", report_dir.to_str().unwrap()])
+            .output()
+            .expect("Failed to execute command");
+
+        let combined = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(output.status.success(), "run should succeed:\n{combined}");
+        let statuses = mutant_statuses(&report_dir.join("mutation-report.json"));
+        assert_eq!(statuses, ["Survived", "Survived"], "\n{combined}");
+    }
+
+    /// A program that does not exist fails the run before any mutant is
+    /// tested, and the error names the program that could not start.
+    #[test]
+    fn missing_program_fails_the_run() {
+        let Some((temp, project_path)) = copy_fixture_to_temp("simple_dart_project") else {
+            println!("Skipping: failed to copy fixtures");
+            return;
+        };
+
+        let output = Command::new(binary_path())
+            .args(["--path", project_path.to_str().unwrap()])
+            .args(["--test-command", "dart_mutant_no_such_program test"])
+            .args(["--output", temp.path().join("reports").to_str().unwrap()])
+            .output()
+            .expect("Failed to execute command");
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(!output.status.success(), "run should fail:\n{stderr}");
+        assert!(
+            stderr.contains("dart_mutant_no_such_program"),
+            "got:\n{stderr}"
+        );
+    }
+
+    /// An unclosed quote is rejected up front, even in `--dry-run`.
+    #[test]
+    fn unclosed_quote_is_rejected() {
+        let output = Command::new(binary_path())
+            .args(["--path", fixtures_path().to_str().unwrap(), "--dry-run"])
+            .args(["--test-command", "flutter test --plain-name \"adds"])
+            .output()
+            .expect("Failed to execute command");
+
+        assert!(!output.status.success());
+    }
+}
+
+/// `--glob` narrows the files to mutate, relative to `--path`.
+///
+/// Implements [PARSER-DISCOVERY-GLOB].
+mod glob_e2e {
+    use super::*;
+
+    /// Number of mutations a `--dry-run` with `extra` arguments would test.
+    fn dry_run_mutation_count(path: &std::path::Path, extra: &[&str]) -> usize {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let output = Command::new(binary_path())
+            .args(["--path", path.to_str().unwrap(), "--dry-run"])
+            .args(["--output", temp.path().to_str().unwrap()])
+            .args(extra)
+            .output()
+            .expect("Failed to execute command");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .find(|line| line.contains("mutations would be tested"))
+            .and_then(|line| line.split_whitespace().next()?.parse().ok())
+            .expect("dry run should report a mutation count")
+    }
+
+    /// `--glob lib/calculator.dart` yields the same mutations as pointing
+    /// `--path` at that file, and fewer than the whole project.
+    #[test]
+    fn glob_selects_only_the_matching_file() {
+        let project = fixtures_path();
+        let calculator = project.join("lib").join("calculator.dart");
+
+        let with_glob = dry_run_mutation_count(&project, &["--glob", "lib/calculator.dart"]);
+        let whole_project = dry_run_mutation_count(&project, &[]);
+
+        assert_eq!(with_glob, dry_run_mutation_count(&calculator, &[]));
+        assert!(with_glob < whole_project, "{with_glob} vs {whole_project}");
+    }
+
+    /// A malformed pattern stops the run instead of mutating every file.
+    #[test]
+    fn invalid_glob_is_rejected() {
+        let output = Command::new(binary_path())
+            .args(["--path", fixtures_path().to_str().unwrap(), "--dry-run"])
+            .args(["--glob", "lib/[.dart"])
+            .output()
+            .expect("Failed to execute command");
+
+        assert!(!output.status.success());
     }
 }
 
