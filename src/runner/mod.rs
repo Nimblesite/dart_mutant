@@ -2,20 +2,21 @@
 //!
 //! This module handles running tests against mutated code and collecting results.
 
+mod test_command;
+
 pub use crate::mutation::{MutantStatus, Mutation};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use indicatif::ProgressBar;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::process::Command;
+pub use test_command::TestCommand;
 use tokio::sync::{Mutex, Semaphore};
 use tokio::time::timeout;
-use tracing::{debug, info, trace, warn};
+use tracing::{debug, info, warn};
 
 /// RAII guard that restores a file to its original content on drop
 struct FileRestoreGuard {
@@ -74,10 +75,14 @@ pub enum BaselineStatus {
 /// Implements [RUNNER-BASELINE]. Mutation scores are meaningless when the suite
 /// already fails on unmutated code (every mutant would appear "killed"), so
 /// callers MUST abort when this returns [`BaselineStatus::Failing`].
-pub async fn verify_baseline(project_path: &Path, timeout_secs: u64) -> Result<BaselineStatus> {
+pub async fn verify_baseline(
+    project_path: &Path,
+    test_command: &TestCommand,
+    timeout_secs: u64,
+) -> Result<BaselineStatus> {
     info!(project = %project_path.display(), timeout_secs, "verifying baseline test suite");
     let timeout_duration = Duration::from_secs(timeout_secs);
-    match timeout(timeout_duration, run_dart_test(project_path)).await {
+    match timeout(timeout_duration, test_command.run(project_path)).await {
         Ok(Ok((0, _, _))) => {
             info!("baseline passed — proceeding with mutation testing");
             Ok(BaselineStatus::Passing)
@@ -105,6 +110,7 @@ pub async fn verify_baseline(project_path: &Path, timeout_secs: u64) -> Result<B
 /// another's changes.
 pub async fn run_mutation_tests(
     project_path: &Path,
+    test_command: &TestCommand,
     mutations: &[Mutation],
     parallel_jobs: usize,
     timeout_secs: u64,
@@ -119,6 +125,7 @@ pub async fn run_mutation_tests(
     );
     let semaphore = Arc::new(Semaphore::new(parallel_jobs));
     let project_path = Arc::new(project_path.to_path_buf());
+    let test_command = Arc::new(test_command.clone());
     let timeout_duration = Duration::from_secs(timeout_secs);
 
     // Per-file locks to prevent concurrent mutations on the same file
@@ -134,6 +141,7 @@ pub async fn run_mutation_tests(
             let mutation = mutation.clone();
             let semaphore = semaphore.clone();
             let project_path = project_path.clone();
+            let test_command = test_command.clone();
             let progress = progress.clone();
             let killed = killed.clone();
             let survived = survived.clone();
@@ -154,7 +162,9 @@ pub async fn run_mutation_tests(
                 let file_lock = get_file_lock(&file_locks, &mutation.location.file).await;
                 let _file_guard = file_lock.lock().await;
 
-                let result = test_single_mutation(&project_path, &mutation, timeout_duration).await;
+                let result =
+                    test_single_mutation(&project_path, &test_command, &mutation, timeout_duration)
+                        .await;
 
                 // Update counters and progress
                 match result.status {
@@ -194,6 +204,7 @@ pub async fn run_mutation_tests(
 /// Test a single mutation
 async fn test_single_mutation(
     project_path: &Path,
+    test_command: &TestCommand,
     mutation: &Mutation,
     timeout_duration: Duration,
 ) -> MutantTestResult {
@@ -245,7 +256,7 @@ async fn test_single_mutation(
     }
 
     // Run the test command
-    let test_result = timeout(timeout_duration, run_dart_test(project_path)).await;
+    let test_result = timeout(timeout_duration, test_command.run(project_path)).await;
 
     // File will be restored by _restore_guard when it goes out of scope
 
@@ -290,26 +301,6 @@ async fn test_single_mutation(
         output,
         error,
     }
-}
-
-/// Run `dart test` and return (exit_code, stdout, stderr)
-async fn run_dart_test(project_path: &Path) -> Result<(i32, String, String)> {
-    trace!(project = %project_path.display(), "spawning `dart test`");
-    let output = Command::new("dart")
-        .arg("test")
-        .arg("--reporter=compact")
-        .current_dir(project_path)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .await
-        .context("Failed to run dart test")?;
-
-    let exit_code = output.status.code().unwrap_or(-1);
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-    Ok((exit_code, stdout, stderr))
 }
 
 #[cfg(test)]
